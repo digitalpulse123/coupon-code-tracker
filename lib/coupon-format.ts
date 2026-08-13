@@ -32,12 +32,12 @@ export function formatOffer(coupon: Coupon): string {
   }
 }
 
-// Multibuy is intentionally omitted from the create form on request. The schema
-// and formatOffer still support it, so it can be re-added here if ever needed.
+// Multibuy is selectable but does not capture specific quantities on the form.
 export const OFFER_TYPE_OPTIONS = [
   { value: "percentage", label: "Percentage off" },
   { value: "fixed", label: "Fixed amount off" },
   { value: "threshold", label: "Amount off over a minimum spend" },
+  { value: "multibuy", label: "Multibuy" },
   { value: "bogof", label: "Buy one get one free" },
   { value: "bogohp", label: "Buy one get one half price" },
   { value: "free_gift", label: "Free gift" },

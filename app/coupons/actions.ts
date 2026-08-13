@@ -49,8 +49,6 @@ export async function createCoupon(
   const offerTypeRaw = String(formData.get("offerType") ?? "");
   const offerValueRaw = String(formData.get("offerValue") ?? "").trim();
   const minSpendRaw = String(formData.get("minSpend") ?? "").trim();
-  const multibuyQtyRaw = String(formData.get("multibuyQty") ?? "").trim();
-  const multibuyPayQtyRaw = String(formData.get("multibuyPayQty") ?? "").trim();
   const giftSku = String(formData.get("giftSku") ?? "").trim() || null;
   const isActive = formData.get("isActive") === "on";
 
@@ -79,8 +77,6 @@ export async function createCoupon(
   }
 
   let offerValue: number | null = null;
-  let multibuyQty: number | null = null;
-  let multibuyPayQty: number | null = null;
 
   switch (offerType) {
     case "percentage": {
@@ -107,31 +103,14 @@ export async function createCoupon(
       }
       break;
     }
-    case "multibuy": {
-      multibuyQty = Number(multibuyQtyRaw);
-      multibuyPayQty = Number(multibuyPayQtyRaw);
-      if (
-        !multibuyQtyRaw ||
-        !multibuyPayQtyRaw ||
-        !Number.isInteger(multibuyQty) ||
-        !Number.isInteger(multibuyPayQty) ||
-        multibuyQty < 2 ||
-        multibuyPayQty < 1
-      ) {
-        return { error: "Enter whole numbers for the deal, for example 3 and 2." };
-      }
-      if (multibuyPayQty >= multibuyQty) {
-        return { error: "The paid quantity must be less than the deal quantity." };
-      }
-      break;
-    }
     case "free_gift": {
       if (!giftSku) return { error: "Enter the gift SKU." };
       break;
     }
+    case "multibuy":
     case "bogof":
     case "bogohp":
-      // No extra fields; the discount is entered per redemption (BR-09).
+      // No extra fields captured. The discount is entered per redemption (BR-09).
       break;
   }
 
@@ -156,8 +135,8 @@ export async function createCoupon(
         offerType,
         offerValue,
         minSpend,
-        multibuyQty,
-        multibuyPayQty,
+        multibuyQty: null,
+        multibuyPayQty: null,
         giftSku: offerType === "free_gift" ? giftSku : null,
         startsOn,
         endsOn,
