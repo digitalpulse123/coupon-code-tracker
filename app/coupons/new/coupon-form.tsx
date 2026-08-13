@@ -7,13 +7,6 @@ import { OFFER_TYPE_OPTIONS, COUPON_TYPE_OPTIONS } from "@/lib/coupon-format";
 export default function CouponForm() {
   const [state, action, pending] = useActionState(createCoupon, {});
   const [offerType, setOfferType] = useState<string>("percentage");
-  const [multibuyQty, setMultibuyQty] = useState("");
-  const [multibuyPayQty, setMultibuyPayQty] = useState("");
-
-  function applyPreset(qty: number, pay: number) {
-    setMultibuyQty(String(qty));
-    setMultibuyPayQty(String(pay));
-  }
 
   const showOfferValue =
     offerType === "percentage" ||
@@ -91,54 +84,6 @@ export default function CouponForm() {
             step="0.01"
             min="0"
           />
-        </div>
-      )}
-
-      {offerType === "multibuy" && (
-        <div className="field">
-          <label>Multibuy quantities</label>
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
-            <button
-              type="button"
-              className="btn-link"
-              onClick={() => applyPreset(3, 2)}
-            >
-              3 for 2
-            </button>
-            <button
-              type="button"
-              className="btn-link"
-              onClick={() => applyPreset(4, 3)}
-            >
-              4 for 3
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <input
-              name="multibuyQty"
-              type="number"
-              min="2"
-              step="1"
-              placeholder="Items in the deal"
-              value={multibuyQty}
-              onChange={(e) => setMultibuyQty(e.target.value)}
-              aria-label="Items in the deal"
-            />
-            <input
-              name="multibuyPayQty"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="Items paid for"
-              value={multibuyPayQty}
-              onChange={(e) => setMultibuyPayQty(e.target.value)}
-              aria-label="Items paid for"
-            />
-          </div>
-          <p className="form-hint">
-            For example 3 and 2 is a 3 for 2. Paid must be less than the deal
-            quantity.
-          </p>
         </div>
       )}
 
