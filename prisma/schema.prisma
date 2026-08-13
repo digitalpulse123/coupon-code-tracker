@@ -1,0 +1,261 @@
+// Coupon Code Tracker data model. Mirrors SPEC section 5.
+// Online and in-store redemptions are deliberately separate tables; the
+// available fields differ materially and they join at the reporting layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum CouponType {
+  daily
+  email_limited
+}
+
+enum OfferType {
+  percentage
+  fixed
+  threshold
+  multibuy
+  bogof
+  bogohp
+  free_gift
+}
+
+enum FulfilmentGroup {
+  guaranteed
+  click_collect
+  click_reserve
+}
+
+enum Channel {
+  online
+  instore
+}
+
+enum UserRole {
+  admin
+  viewer
+}
+
+enum ImportSource {
+  csv
+  metorik_api
+}
+
+enum ImportStatus {
+  success
+  partial
+  failed
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+}
+
+// ---------------------------------------------------------------------------
+// Master data
+// ---------------------------------------------------------------------------
+
+/// Master coupon record. Drives the index, offer preview and channel validity.
+/// CHECK constraints added in the initial migration:
+///   valid_online OR valid_instore
+///   offer_type <> 'multibuy' OR multibuy_pay_qty < multibuy_qty
+model Coupon {
+  id             String      @id @default(uuid()) @db.Uuid
+  code           String      @unique // stored uppercase, trimmed (BR-08)
+  name           String
+  type           CouponType?
+  campaign       String? // optional, links to the content calendar
+  validOnline    Boolean     @map("valid_online")
+  validInstore   Boolean     @map("valid_instore")
+  offerType      OfferType?  @map("offer_type")
+  offerValue     Decimal?    @map("offer_value") @db.Decimal(10, 2)
+  minSpend       Decimal?    @map("min_spend") @db.Decimal(10, 2)
+  multibuyQty    Int?        @map("multibuy_qty")
+  multibuyPayQty Int?        @map("multibuy_pay_qty")
+  giftSku        String?     @map("gift_sku")
+  startsOn       DateTime?   @map("starts_on") @db.Date
+  endsOn         DateTime?   @map("ends_on") @db.Date
+  isActive       Boolean     @default(true) @map("is_active")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  onlineRedemptions  OnlineRedemption[]
+  instoreRedemptions InstoreRedemption[]
+
+  @@map("coupon")
+}
+
+model Store {
+  id        String  @id @default(uuid()) @db.Uuid
+  name      String  @unique
+  shortCode String? @unique @map("short_code")
+  isActive  Boolean @default(true) @map("is_active")
+
+  aliases            StoreAlias[]
+  onlineRedemptions  OnlineRedemption[]
+  instoreRedemptions InstoreRedemption[]
+
+  @@map("store")
+}
+
+/// Maps store strings arriving in online data to a canonical store.
+/// Unmapped source values must be surfaced at import, never dropped.
+model StoreAlias {
+  id          String @id @default(uuid()) @db.Uuid
+  storeId     String @map("store_id") @db.Uuid
+  sourceValue String @unique @map("source_value") // exact string as received
+  store       Store  @relation(fields: [storeId], references: [id])
+
+  @@map("store_alias")
+}
+
+// ---------------------------------------------------------------------------
+// Redemptions
+// ---------------------------------------------------------------------------
+
+/// One row per coupon per order. An order with two codes produces two rows.
+/// The (order_number, coupon_code) unique constraint makes imports idempotent.
+model OnlineRedemption {
+  id                String           @id @default(uuid()) @db.Uuid
+  couponCode        String           @map("coupon_code") // denormalised so unknown codes still import
+  couponId          String?          @map("coupon_id") @db.Uuid // resolved where a match exists
+  orderNumber       String           @map("order_number")
+  orderDate         DateTime         @map("order_date") @db.Timestamptz(6)
+  orderTotal        Decimal?         @map("order_total") @db.Decimal(10, 2) // order-level, dedupe on order_number when summing (BR-03)
+  discountAmount    Decimal?         @map("discount_amount") @db.Decimal(10, 2) // this coupon's share
+  shippingMethodRaw String?          @map("shipping_method_raw") // exactly as received, never overwrite (BR-10)
+  fulfilmentGroup   FulfilmentGroup? @map("fulfilment_group")
+  storeId           String?          @map("store_id") @db.Uuid // populated for C&C and C&R
+  isRefunded        Boolean          @default(false) @map("is_refunded")
+  importBatchId     String?          @map("import_batch_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  coupon      Coupon?              @relation(fields: [couponId], references: [id])
+  store       Store?               @relation(fields: [storeId], references: [id])
+  importBatch ImportBatch?         @relation(fields: [importBatchId], references: [id])
+  lineItems   RedemptionLineItem[]
+
+  @@unique([orderNumber, couponCode])
+  @@index([orderDate])
+  @@index([couponCode, orderDate])
+  @@index([storeId, orderDate])
+  @@map("online_redemption")
+}
+
+/// Entered centrally, in batches, against a known coupon.
+/// App-level validation: redeemed_on not in the future; total required.
+/// CHECK constraint added in the initial migration:
+///   discount_amount IS NULL OR discount_amount <= transaction_total
+model InstoreRedemption {
+  id               String   @id @default(uuid()) @db.Uuid
+  couponId         String   @map("coupon_id") @db.Uuid // never null, code known from context
+  redeemedOn       DateTime @map("redeemed_on") @db.Date
+  storeId          String   @map("store_id") @db.Uuid
+  transactionTotal Decimal  @map("transaction_total") @db.Decimal(10, 2)
+  discountAmount   Decimal? @map("discount_amount") @db.Decimal(10, 2) // BR-09, nullable pending D-06
+  receiptRef       String?  @map("receipt_ref") // optional pending D-04
+  itemsText        String?  @map("items_text") // free-text product list, pending D-05
+  enteredBy        String?  @map("entered_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  coupon        Coupon               @relation(fields: [couponId], references: [id])
+  store         Store                @relation(fields: [storeId], references: [id])
+  enteredByUser AppUser?             @relation(fields: [enteredBy], references: [id])
+  lineItems     RedemptionLineItem[]
+
+  @@index([couponId, redeemedOn])
+  @@index([storeId, redeemedOn])
+  @@map("instore_redemption")
+}
+
+/// Structured products. Always populated from the online import; from in-store
+/// entry only if D-05 resolves in favour of structured capture.
+/// CHECK constraint added in the initial migration:
+///   exactly one of the two FK columns is non-null.
+model RedemptionLineItem {
+  id                  String   @id @default(uuid()) @db.Uuid
+  channel             Channel
+  onlineRedemptionId  String?  @map("online_redemption_id") @db.Uuid
+  instoreRedemptionId String?  @map("instore_redemption_id") @db.Uuid
+  productName         String?  @map("product_name")
+  sku                 String?
+  quantity            Int?
+  lineValue           Decimal? @map("line_value") @db.Decimal(10, 2)
+
+  onlineRedemption  OnlineRedemption?  @relation(fields: [onlineRedemptionId], references: [id])
+  instoreRedemption InstoreRedemption? @relation(fields: [instoreRedemptionId], references: [id])
+
+  @@index([onlineRedemptionId])
+  @@index([instoreRedemptionId])
+  @@map("redemption_line_item")
+}
+
+// ---------------------------------------------------------------------------
+// Users, imports, audit
+// ---------------------------------------------------------------------------
+
+model AppUser {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String?
+  email        String   @unique
+  passwordHash String   @map("password_hash") // bcrypt or argon2
+  role         UserRole
+  isActive     Boolean  @default(true) @map("is_active")
+
+  instoreRedemptions InstoreRedemption[]
+  importBatches      ImportBatch[]
+  auditLogs          AuditLog[]
+
+  @@map("app_user")
+}
+
+model ImportBatch {
+  id          String       @id @default(uuid()) @db.Uuid
+  source      ImportSource
+  rangeFrom   DateTime?    @map("range_from") @db.Date
+  rangeTo     DateTime?    @map("range_to") @db.Date
+  rowsRead    Int          @default(0) @map("rows_read")
+  rowsCreated Int          @default(0) @map("rows_created")
+  rowsUpdated Int          @default(0) @map("rows_updated")
+  rowsSkipped Int          @default(0) @map("rows_skipped")
+  status      ImportStatus
+  errorDetail String?      @map("error_detail")
+  runBy       String?      @map("run_by") @db.Uuid
+  runAt       DateTime     @default(now()) @map("run_at") @db.Timestamptz(6)
+
+  runByUser         AppUser?           @relation(fields: [runBy], references: [id])
+  onlineRedemptions OnlineRedemption[]
+
+  @@map("import_batch")
+}
+
+/// Every create, update and delete on manual records. The only way to
+/// reconstruct a disputed figure now that one person enters all in-store data.
+model AuditLog {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String?     @map("user_id") @db.Uuid
+  entity    String
+  entityId  String      @map("entity_id") @db.Uuid
+  action    AuditAction
+  before    Json?
+  after     Json?
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user AppUser? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_log")
+}

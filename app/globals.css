@@ -1,0 +1,46 @@
+:root {
+  /* Brand tokens (SPEC section 14) */
+  --pink: #e8197d; /* online channel */
+  --navy: #1a1a2e;
+  --teal: #16a085; /* in-store channel */
+
+  --bg: #ffffff;
+  --fg: var(--navy);
+  --muted: #5c5c6e;
+  --border: #e4e4ec;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  /* Tabular numerals so figure columns align (SPEC section 14) */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--pink);
+}
+
+.channel-online {
+  color: var(--pink);
+}
+
+.channel-instore {
+  color: var(--teal);
+}
