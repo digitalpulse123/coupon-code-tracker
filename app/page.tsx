@@ -64,11 +64,10 @@ export default async function Home() {
           </p>
         )}
 
-        {isAdmin && (
-          <p style={{ margin: "0 0 1.5rem" }}>
-            <Link href="/admin/stores">Manage stores</Link>
-          </p>
-        )}
+        <p style={{ margin: "0 0 1.5rem", display: "flex", gap: "1rem" }}>
+          <Link href="/coupons">Coupons</Link>
+          {isAdmin && <Link href="/admin/stores">Manage stores</Link>}
+        </p>
 
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
           Service health at <a href="/api/health">/api/health</a>.

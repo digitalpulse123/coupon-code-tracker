@@ -213,3 +213,25 @@ table.data {
   background: #f0f0f4;
   color: var(--muted);
 }
+
+.badge-online {
+  background: #fde6f0;
+  color: #b3175e;
+}
+
+.badge-instore {
+  background: #e6f6f1;
+  color: #0f6b57;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  margin-bottom: 0.35rem;
+}
+
+.check input {
+  width: auto;
+}
