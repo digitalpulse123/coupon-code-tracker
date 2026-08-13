@@ -36,10 +36,33 @@ function redact(value: unknown): unknown {
   return value;
 }
 
-// Admin diagnostic: fetches a few recent orders with personal data stripped so
-// the real order shape (coupons, shipping, line items) can be inspected before
-// the importer is built. Not part of the import pipeline.
-export async function GET() {
+// Collect any object key that mentions coupon or discount, at any depth.
+function findCouponKeys(value: unknown, found = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    value.forEach((v) => findCouponKeys(v, found));
+  } else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) {
+      if (/coupon|discount/i.test(k)) found.add(k);
+      findCouponKeys(v, found);
+    }
+  }
+  return found;
+}
+
+async function readJson(res: Response): Promise<unknown> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text.slice(0, 4000) };
+  }
+}
+
+// Admin diagnostic. Personal data is stripped before anything is returned.
+// Default mode scans recent orders for one that used a coupon, so the coupon
+// field structure can be inspected. ?search=<order number> fetches a specific
+// order instead.
+export async function GET(request: Request) {
   const session = await auth();
   if (session?.user?.role !== "admin") {
     return NextResponse.json({ error: "Not authorised" }, { status: 403 });
@@ -51,34 +74,67 @@ export async function GET() {
     );
   }
 
-  let res: Response;
-  try {
-    res = await metorikGet("/orders", {
-      per_page: 3,
+  const search = new URL(request.url).searchParams.get("search");
+
+  if (search) {
+    const res = await metorikGet("/orders", { search, per_page: 3 });
+    if (!res.ok) {
+      return NextResponse.json({
+        error: `Metorik returned ${res.status}`,
+        body: (await res.text()).slice(0, 2000),
+      });
+    }
+    return NextResponse.json(redact(await readJson(res)));
+  }
+
+  // Scan up to 3 pages of recent orders for one that carries a coupon.
+  const orders: unknown[] = [];
+  for (let page = 1; page <= 3; page++) {
+    const res = await metorikGet("/orders", {
+      page,
+      per_page: 100,
       order_by: "order_created_at",
       order_dir: "desc",
     });
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Request failed" },
-      { status: 500 },
-    );
+    if (!res.ok) {
+      return NextResponse.json({
+        error: `Metorik returned ${res.status} on page ${page}`,
+        body: (await res.text()).slice(0, 2000),
+      });
+    }
+    const json = (await readJson(res)) as {
+      data?: unknown[];
+      pagination?: { has_more_pages?: boolean };
+    };
+    orders.push(...(json.data ?? []));
+    if (!json.pagination?.has_more_pages) break;
   }
 
-  const text = await res.text();
-  if (!res.ok) {
-    return NextResponse.json(
-      {
-        error: `Metorik returned ${res.status}`,
-        body: text.slice(0, 2000),
-      },
-      { status: 200 },
-    );
-  }
+  const couponKeys = new Set<string>();
+  const couponOrders = orders.filter((o) => {
+    const keys = findCouponKeys(o);
+    keys.forEach((k) => couponKeys.add(k));
+    return keys.size > 0;
+  });
 
-  try {
-    return NextResponse.json(redact(JSON.parse(text)));
-  } catch {
-    return NextResponse.json({ raw: text.slice(0, 4000) });
-  }
+  const samples = (couponOrders.length ? couponOrders : orders)
+    .slice(0, 2)
+    .map(redact);
+
+  const firstOrder = orders[0];
+  const topLevelKeys =
+    firstOrder && typeof firstOrder === "object"
+      ? Object.keys(firstOrder as Record<string, unknown>)
+      : [];
+
+  return NextResponse.json({
+    scanned: orders.length,
+    couponOrdersFound: couponOrders.length,
+    couponKeysSeen: [...couponKeys],
+    topLevelKeys,
+    note: couponOrders.length
+      ? "Found orders carrying a coupon/discount field. See samples."
+      : "No coupon or discount field found on scanned orders. Either orders do not expose coupons via the API, or none in this recent window used one.",
+    samples,
+  });
 }
