@@ -99,7 +99,19 @@ a {
   border-radius: 8px;
 }
 
-.field input:focus {
+.field select {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--fg);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.field input:focus,
+.field select:focus {
   outline: 2px solid var(--pink);
   outline-offset: 1px;
   border-color: var(--pink);
@@ -146,4 +158,58 @@ a {
   font-size: 0.8rem;
   color: var(--muted);
   margin: 0.35rem 0 0;
+}
+
+/* Layout + tables */
+.container {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data th,
+.data td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.data th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.badge-on {
+  background: #e6f6f1;
+  color: #0f6b57;
+}
+
+.badge-off {
+  background: #f0f0f4;
+  color: var(--muted);
 }

@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import SignOutButton from "@/components/sign-out-button";
 
 export default async function Home() {
   const session = await auth();
   const user = session?.user;
+  const isAdmin = user?.role === "admin";
 
   return (
     <main
@@ -59,6 +61,12 @@ export default async function Home() {
               {user.role ? ` (${user.role})` : ""}
             </span>
             <SignOutButton />
+          </p>
+        )}
+
+        {isAdmin && (
+          <p style={{ margin: "0 0 1.5rem" }}>
+            <Link href="/admin/stores">Manage stores</Link>
           </p>
         )}
 
