@@ -141,7 +141,11 @@ export default async function CouponsPage({
           <tbody>
             {coupons.map((coupon) => (
               <tr key={coupon.id}>
-                <td style={{ fontWeight: 600 }}>{coupon.code}</td>
+                <td style={{ fontWeight: 600 }}>
+                  <Link href={`/coupons/${encodeURIComponent(coupon.code)}`}>
+                    {coupon.code}
+                  </Link>
+                </td>
                 <td>{coupon.name}</td>
                 <td>
                   <span style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
