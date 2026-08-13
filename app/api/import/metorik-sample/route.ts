@@ -48,9 +48,10 @@ export async function GET(request: Request) {
   }
 
   const pagesParam = Number(new URL(request.url).searchParams.get("pages"));
-  const pages = Number.isFinite(pagesParam)
-    ? Math.min(Math.max(Math.trunc(pagesParam), 1), 10)
-    : 5;
+  const pages =
+    Number.isFinite(pagesParam) && pagesParam > 0
+      ? Math.min(Math.trunc(pagesParam), 10)
+      : 5;
 
   const orders: Order[] = [];
   for (let page = 1; page <= pages; page++) {
