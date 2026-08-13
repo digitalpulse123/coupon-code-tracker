@@ -1,0 +1,12 @@
+import bcrypt from "bcryptjs";
+
+// Cost factor for bcrypt. 10 is a sensible default for an internal app.
+const SALT_ROUNDS = 10;
+
+export function hashPassword(plain: string): string {
+  return bcrypt.hashSync(plain, SALT_ROUNDS);
+}
+
+export function verifyPassword(plain: string, hash: string): boolean {
+  return bcrypt.compareSync(plain, hash);
+}

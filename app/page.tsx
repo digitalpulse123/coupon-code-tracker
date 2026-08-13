@@ -1,4 +1,10 @@
-export default function Home() {
+import { auth } from "@/auth";
+import SignOutButton from "@/components/sign-out-button";
+
+export default async function Home() {
+  const session = await auth();
+  const user = session?.user;
+
   return (
     <main
       style={{
@@ -36,9 +42,28 @@ export default function Home() {
           </span>
           . Phase 1 build in progress.
         </p>
+
+        {user && (
+          <p
+            style={{
+              fontSize: "0.9rem",
+              margin: "0 0 1.5rem",
+              display: "flex",
+              gap: "0.75rem",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <span>
+              Signed in as <strong>{user.email}</strong>
+              {user.role ? ` (${user.role})` : ""}
+            </span>
+            <SignOutButton />
+          </p>
+        )}
+
         <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
-          Deployment skeleton reachable. Service health at{" "}
-          <a href="/api/health">/api/health</a>.
+          Service health at <a href="/api/health">/api/health</a>.
         </p>
       </div>
     </main>

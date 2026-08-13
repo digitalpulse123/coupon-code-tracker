@@ -44,3 +44,106 @@ a {
 .channel-instore {
   color: var(--teal);
 }
+
+/* Auth screens (login, setup) */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 24rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.auth-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 0.25rem;
+}
+
+.auth-card h1 {
+  font-size: 1.4rem;
+  margin: 0 0 1.25rem;
+}
+
+.field {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.field input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--fg);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.field input:focus {
+  outline: 2px solid var(--pink);
+  outline-offset: 1px;
+  border-color: var(--pink);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--pink);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--pink);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.form-error {
+  background: #fdecef;
+  color: #a01243;
+  border: 1px solid #f5c2d1;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0.35rem 0 0;
+}

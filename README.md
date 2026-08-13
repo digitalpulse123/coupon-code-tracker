@@ -63,6 +63,23 @@ npm run db:studio     # browse data
 
 Migrations are committed to version control. No manual schema changes against production.
 
+## Authentication
+
+Auth.js (v5) with the credentials provider. Two roles: `admin` and `viewer`.
+
+- Sessions use the **JWT strategy**, not database sessions. The spec noted
+  "sessions in Postgres", but Auth.js does not support database sessions with
+  the credentials provider, so JWT is the correct choice here.
+- Route protection runs in `middleware.ts` using a database-free `auth.config.ts`
+  (the edge runtime cannot use Prisma). The Prisma-backed credentials provider
+  lives in `auth.ts`, used by the API route and server components.
+- Passwords are hashed with bcrypt (`bcryptjs`).
+- **First run:** visit `/setup` to create the first admin account. The page
+  disables itself once any user exists. There is no self-service registration.
+
+Requires `AUTH_SECRET` (generate with `npx auth secret`) and, in production,
+`AUTH_URL` set to the deployment URL.
+
 ## Deployment (Railway)
 
 Railway builds on push to `main`. See `railway.json`.
@@ -82,7 +99,7 @@ Phase 1, in progress.
 
 - [x] Repo, Railway config, Postgres schema, blank page deployable
 - [x] Prisma schema and initial migration, including the unique constraint
-- [ ] Auth (Auth.js credentials)
+- [x] Auth (Auth.js credentials)
 - [ ] Store master and aliases
 - [ ] Coupon master: create form and searchable index
 - [ ] CSV import pipeline with upsert and batch logging
