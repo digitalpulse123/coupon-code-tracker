@@ -202,6 +202,28 @@ export async function updateCoupon(
   redirect(`/coupons/${encodeURIComponent(parsed.data.code)}`);
 }
 
+export async function deleteCoupon(id: string): Promise<{ error?: string }> {
+  await assertAdmin();
+  if (!id) return { error: "Missing coupon reference." };
+
+  const [online, instore] = await Promise.all([
+    prisma.onlineRedemption.count({ where: { couponId: id } }),
+    prisma.instoreRedemption.count({ where: { couponId: id } }),
+  ]);
+  if (online > 0 || instore > 0) {
+    return {
+      error:
+        "This code has redemptions recorded against it, so it cannot be deleted. Deactivate it instead.",
+    };
+  }
+
+  // Any Metorik promotions assigned to it are freed (become unassigned again).
+  await prisma.coupon.delete({ where: { id } });
+  revalidatePath("/coupons");
+  revalidatePath("/admin/promotions");
+  return {};
+}
+
 export async function setCouponActive(formData: FormData): Promise<void> {
   await assertAdmin();
 

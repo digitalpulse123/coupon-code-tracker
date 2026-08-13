@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import CouponForm from "../../new/coupon-form";
 import { updateCoupon } from "../../actions";
+import { DeleteCouponButton } from "../../delete-coupon-button";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,17 @@ export default async function EditCouponPage({
       </p>
       <h1 style={{ fontSize: "1.6rem", margin: "0 0 1.5rem" }}>Edit coupon</h1>
       <CouponForm action={updateCoupon} initial={initial} submitLabel="Save changes" />
+
+      <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
+        <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: "0 0 0.5rem" }}>
+          Delete this coupon. Only possible if it has no redemptions recorded.
+        </p>
+        <DeleteCouponButton
+          id={coupon.id}
+          code={coupon.code}
+          redirectTo="/coupons"
+        />
+      </div>
     </main>
   );
 }

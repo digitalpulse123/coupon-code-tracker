@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatOffer } from "@/lib/coupon-format";
 import { formatDateGB } from "@/lib/format";
 import { setCouponActive } from "./actions";
+import { DeleteCouponButton } from "./delete-coupon-button";
 
 export const dynamic = "force-dynamic";
 
@@ -167,8 +168,8 @@ export default async function CouponsPage({
                   )}
                 </td>
                 {isAdmin && (
-                  <td style={{ textAlign: "right" }}>
-                    <form action={setCouponActive}>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <form action={setCouponActive} style={{ display: "inline" }}>
                       <input type="hidden" name="id" value={coupon.id} />
                       <input
                         type="hidden"
@@ -178,7 +179,8 @@ export default async function CouponsPage({
                       <button className="btn-link">
                         {coupon.isActive ? "Deactivate" : "Activate"}
                       </button>
-                    </form>
+                    </form>{" "}
+                    <DeleteCouponButton id={coupon.id} code={coupon.code} />
                   </td>
                 )}
               </tr>
