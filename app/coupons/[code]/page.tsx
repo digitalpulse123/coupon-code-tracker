@@ -59,7 +59,20 @@ export default async function CouponDetailPage({
       <p className="auth-eyebrow">
         <Link href="/coupons">Coupons</Link> / {coupon.code}
       </p>
-      <h1 style={{ fontSize: "1.6rem", margin: "0 0 0.5rem" }}>{coupon.name}</h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: "1rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <h1 style={{ fontSize: "1.6rem", margin: "0 0 0.5rem" }}>{coupon.name}</h1>
+        {isAdmin && (
+          <Link href={`/coupons/${encodeURIComponent(coupon.code)}/edit`}>Edit coupon</Link>
+        )}
+      </div>
 
       <p
         style={{

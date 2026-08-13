@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import CouponForm from "./coupon-form";
+import { createCoupon } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function NewCouponPage() {
       <h1 style={{ fontSize: "1.6rem", margin: "0 0 1.5rem" }}>
         Create a coupon
       </h1>
-      <CouponForm />
+      <CouponForm action={createCoupon} submitLabel="Create coupon" />
     </main>
   );
 }

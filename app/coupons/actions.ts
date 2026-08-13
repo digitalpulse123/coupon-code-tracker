@@ -21,6 +21,24 @@ const OFFER_TYPES: OfferType[] = [
 ];
 const COUPON_TYPES: CouponType[] = ["daily", "email_limited"];
 
+type CouponData = {
+  code: string;
+  name: string;
+  type: CouponType | null;
+  campaign: string | null;
+  validOnline: boolean;
+  validInstore: boolean;
+  offerType: OfferType | null;
+  offerValue: number | null;
+  minSpend: number | null;
+  multibuyQty: null;
+  multibuyPayQty: null;
+  giftSku: string | null;
+  startsOn: Date | null;
+  endsOn: Date | null;
+  isActive: boolean;
+};
+
 async function assertAdmin() {
   const session = await auth();
   if (session?.user?.role !== "admin") throw new Error("Not authorised");
@@ -32,12 +50,9 @@ function parseOptionalDate(raw: string): Date | null | "invalid" {
   return Number.isNaN(d.getTime()) ? "invalid" : d;
 }
 
-export async function createCoupon(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  await assertAdmin();
-
+// Shared parsing and validation for create and edit. Type and offer type are
+// optional so a code can be recorded before its offer detail is known.
+function parseCouponForm(formData: FormData): { data: CouponData } | { error: string } {
   const code = String(formData.get("code") ?? "")
     .trim()
     .toUpperCase();
@@ -52,22 +67,21 @@ export async function createCoupon(
   const giftSku = String(formData.get("giftSku") ?? "").trim() || null;
   const isActive = formData.get("isActive") === "on";
 
-  // Base validation.
   if (!code) return { error: "A coupon code is required." };
   if (!name) return { error: "A name is required." };
-  if (!COUPON_TYPES.includes(typeRaw as CouponType)) {
-    return { error: "Choose a coupon type." };
+  if (typeRaw && !COUPON_TYPES.includes(typeRaw as CouponType)) {
+    return { error: "Choose a valid coupon type." };
   }
   if (!validOnline && !validInstore) {
     return { error: "A coupon must be valid on at least one channel." };
   }
-  if (!OFFER_TYPES.includes(offerTypeRaw as OfferType)) {
-    return { error: "Choose an offer type." };
+  if (offerTypeRaw && !OFFER_TYPES.includes(offerTypeRaw as OfferType)) {
+    return { error: "Choose a valid offer type." };
   }
-  const type = typeRaw as CouponType;
-  const offerType = offerTypeRaw as OfferType;
 
-  // Minimum spend is optional on any offer type (decision D-07).
+  const type = (typeRaw || null) as CouponType | null;
+  const offerType = (offerTypeRaw || null) as OfferType | null;
+
   let minSpend: number | null = null;
   if (minSpendRaw) {
     minSpend = Number(minSpendRaw);
@@ -77,7 +91,6 @@ export async function createCoupon(
   }
 
   let offerValue: number | null = null;
-
   switch (offerType) {
     case "percentage": {
       offerValue = Number(offerValueRaw);
@@ -107,10 +120,8 @@ export async function createCoupon(
       if (!giftSku) return { error: "Enter the gift SKU." };
       break;
     }
-    case "multibuy":
-    case "bogof":
-    case "bogohp":
-      // No extra fields captured. The discount is entered per redemption (BR-09).
+    default:
+      // multibuy / bogof / bogohp / null: no extra fields.
       break;
   }
 
@@ -123,35 +134,72 @@ export async function createCoupon(
     return { error: "The end date cannot be before the start date." };
   }
 
+  return {
+    data: {
+      code,
+      name,
+      type,
+      campaign,
+      validOnline,
+      validInstore,
+      offerType,
+      offerValue,
+      minSpend,
+      multibuyQty: null,
+      multibuyPayQty: null,
+      giftSku: offerType === "free_gift" ? giftSku : null,
+      startsOn,
+      endsOn,
+      isActive,
+    },
+  };
+}
+
+export async function createCoupon(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await assertAdmin();
+
+  const parsed = parseCouponForm(formData);
+  if ("error" in parsed) return parsed;
+
   try {
-    await prisma.coupon.create({
-      data: {
-        code,
-        name,
-        type,
-        campaign,
-        validOnline,
-        validInstore,
-        offerType,
-        offerValue,
-        minSpend,
-        multibuyQty: null,
-        multibuyPayQty: null,
-        giftSku: offerType === "free_gift" ? giftSku : null,
-        startsOn,
-        endsOn,
-        isActive,
-      },
-    });
+    await prisma.coupon.create({ data: parsed.data });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: `A coupon with the code ${code} already exists.` };
+      return { error: `A coupon with the code ${parsed.data.code} already exists.` };
     }
     throw e;
   }
 
   revalidatePath("/coupons");
   redirect("/coupons");
+}
+
+export async function updateCoupon(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await assertAdmin();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing coupon reference." };
+
+  const parsed = parseCouponForm(formData);
+  if ("error" in parsed) return parsed;
+
+  try {
+    await prisma.coupon.update({ where: { id }, data: parsed.data });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: `A coupon with the code ${parsed.data.code} already exists.` };
+    }
+    throw e;
+  }
+
+  revalidatePath("/coupons");
+  redirect(`/coupons/${encodeURIComponent(parsed.data.code)}`);
 }
 
 export async function setCouponActive(formData: FormData): Promise<void> {

@@ -81,14 +81,21 @@ export default async function PromotionsPage() {
                     <td>
                       <form
                         action={createCouponAndAssign}
-                        style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}
+                        style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem", flexWrap: "wrap" }}
                       >
                         <input type="hidden" name="promotionId" value={promo.promotionId} />
                         <input
                           type="text"
+                          name="code"
+                          placeholder="Coupon code"
+                          aria-label="Coupon code"
+                        />
+                        <input
+                          type="text"
                           name="name"
                           defaultValue={suggested}
-                          placeholder="New code name"
+                          placeholder="Name"
+                          aria-label="Name"
                           required
                         />
                         <button className="btn-link" style={{ whiteSpace: "nowrap" }}>

@@ -108,9 +108,11 @@ export async function createCouponAndAssign(formData: FormData): Promise<void> {
   await assertAdmin();
   const promotionId = String(formData.get("promotionId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
+  const codeInput = String(formData.get("code") ?? "").trim().toUpperCase();
   if (!promotionId || !name) return;
 
-  const code = name.toUpperCase();
+  // Use the entered code, or fall back to the name if none was given.
+  const code = codeInput || name.toUpperCase();
 
   const coupon = await prisma.coupon.upsert({
     where: { code },
