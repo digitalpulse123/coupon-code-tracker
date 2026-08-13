@@ -93,6 +93,7 @@ model Coupon {
 
   onlineRedemptions  OnlineRedemption[]
   instoreRedemptions InstoreRedemption[]
+  metorikPromotions  MetorikPromotion[]
 
   @@map("coupon")
 }
@@ -240,6 +241,25 @@ model ImportBatch {
   onlineRedemptions OnlineRedemption[]
 
   @@map("import_batch")
+}
+
+/// A promotion ID discovered in Metorik order line items (_ijwp_promotion_id).
+/// Online discounts run through the IJW Promotions plugin, not WooCommerce
+/// coupons. Each promotion is assigned to a coupon record so imported orders can
+/// be attributed to a code. Unassigned promotions are surfaced for mapping.
+model MetorikPromotion {
+  id             String   @id @default(uuid()) @db.Uuid
+  promotionId    String   @unique @map("promotion_id")
+  couponId       String?  @map("coupon_id") @db.Uuid
+  orderCount     Int      @default(0) @map("order_count")
+  sampleProducts String?  @map("sample_products")
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  coupon Coupon? @relation(fields: [couponId], references: [id])
+
+  @@index([couponId])
+  @@map("metorik_promotion")
 }
 
 /// Every create, update and delete on manual records. The only way to
