@@ -8,6 +8,17 @@ const PROMOTION_META_KEY = "_ijwp_promotion_id";
 const EXCLUDED_SKU = "QMP001"; // BR-05: phantom click-and-reserve product
 const MAX_PAGES = 200; // safety cap (~20k orders)
 
+// Order statuses that do not count as a redemption, to match Metorik
+// (failed, cancelled, pending payment) plus junk statuses.
+const EXCLUDED_STATUSES = new Set([
+  "pending",
+  "cancelled",
+  "canceled",
+  "failed",
+  "checkout-draft",
+  "trash",
+]);
+
 type MetaEntry = { key?: string; value?: unknown };
 type LineItem = {
   name?: string;
@@ -133,6 +144,25 @@ export async function runMetorikSync(opts: {
 
         const orderNumber = order.order_number ?? "";
         if (!orderNumber) {
+          rowsSkipped++;
+          continue;
+        }
+
+        // Skip failed / cancelled / pending orders (match Metorik, BR-04), and
+        // remove any that were imported before they reached that status.
+        const status = (order.status ?? "").toLowerCase();
+        if (EXCLUDED_STATUSES.has(status)) {
+          const existing = await prisma.onlineRedemption.findMany({
+            where: { orderNumber },
+            select: { id: true },
+          });
+          if (existing.length > 0) {
+            const ids = existing.map((e) => e.id);
+            await prisma.redemptionLineItem.deleteMany({
+              where: { onlineRedemptionId: { in: ids } },
+            });
+            await prisma.onlineRedemption.deleteMany({ where: { id: { in: ids } } });
+          }
           rowsSkipped++;
           continue;
         }
