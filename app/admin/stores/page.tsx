@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import AppShell from "@/components/app-shell";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { AddStoreForm, AddAliasForm } from "./store-forms";
@@ -24,17 +25,11 @@ export default async function StoresPage() {
   ]);
 
   return (
-    <main className="container">
-      <p className="auth-eyebrow">
-        <Link href="/">Dashboard</Link> / Admin
-      </p>
-      <h1 style={{ fontSize: "1.6rem", margin: "0 0 0.5rem" }}>Stores</h1>
-      <p style={{ color: "var(--muted)", margin: "0 0 2rem" }}>
-        The canonical list of stores, plus the alternative spellings (aliases)
-        that arrive in online data. Aliases keep store reporting from
-        fragmenting.
-      </p>
-
+    <AppShell
+      active="stores"
+      title="Stores"
+      subtitle="The canonical store list and the alternative spellings that arrive in online data"
+    >
       <section style={{ marginBottom: "2.5rem" }}>
         <h2 style={{ fontSize: "1.1rem" }}>Store list</h2>
 
@@ -152,6 +147,6 @@ export default async function StoresPage() {
           </>
         )}
       </section>
-    </main>
+    </AppShell>
   );
 }

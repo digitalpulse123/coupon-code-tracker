@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import AppShell from "@/components/app-shell";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { metorikConfigured } from "@/lib/metorik";
@@ -27,19 +27,11 @@ export default async function PromotionsPage() {
   ]);
 
   return (
-    <main className="container">
-      <p className="auth-eyebrow">
-        <Link href="/">Dashboard</Link> / Admin
-      </p>
-      <h1 style={{ fontSize: "1.6rem", margin: "0 0 0.5rem" }}>
-        Promotions to assign
-      </h1>
-      <p style={{ color: "var(--muted)", margin: "0 0 1.5rem" }}>
-        Promotion IDs found in Metorik order data that are not yet assigned to a
-        code. Assign each one so imported orders can be attributed. Assigned
-        promotions drop off this list ({assignedCount} already assigned).
-      </p>
-
+    <AppShell
+      active="promotions"
+      title="Promotions to assign"
+      subtitle={`Unassigned promotion IDs found in Metorik orders · ${assignedCount} already assigned`}
+    >
       {!metorikConfigured() && (
         <p className="form-error">
           The Metorik API key is not set, so scanning is disabled.
@@ -127,6 +119,6 @@ export default async function PromotionsPage() {
           </table>
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }

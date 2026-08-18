@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import AppShell from "@/components/app-shell";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { metorikConfigured } from "@/lib/metorik";
@@ -26,16 +26,11 @@ export default async function ImportsPage() {
   });
 
   return (
-    <main className="container">
-      <p className="auth-eyebrow">
-        <Link href="/">Dashboard</Link> / Admin
-      </p>
-      <h1 style={{ fontSize: "1.6rem", margin: "0 0 0.5rem" }}>Imports</h1>
-      <p style={{ color: "var(--muted)", margin: "0 0 1.5rem" }}>
-        Pull online redemptions from Metorik. Orders are matched to codes by their
-        promotion. Re-running is safe — it updates rather than duplicates.
-      </p>
-
+    <AppShell
+      active="imports"
+      title="Imports"
+      subtitle="Pull online redemptions from Metorik · orders matched to codes by promotion"
+    >
       {!metorikConfigured() && (
         <p className="form-error">The Metorik API key is not set, so syncing is disabled.</p>
       )}
@@ -86,6 +81,6 @@ export default async function ImportsPage() {
           </table>
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }
