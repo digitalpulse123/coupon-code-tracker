@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { metorikConfigured } from "@/lib/metorik";
 import { knownPromotionName } from "@/lib/known-promotions";
 import { ScanButton } from "./scan-button";
+import { AutoMapButton } from "./auto-map-button";
 import { assignPromotion, createCouponAndAssign } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,22 @@ export default async function PromotionsPage() {
           The Metorik API key is not set, so scanning is disabled.
         </p>
       )}
+
+      <div className="panel" style={{ marginBottom: "1.5rem" }}>
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+          <div>
+            <div className="panel-title" style={{ marginBottom: 3 }}>
+              Match codes automatically
+            </div>
+            <p className="sub" style={{ margin: 0 }}>
+              IJW gate coupons (like VIBE20) carry their promotion ID in Metorik. This
+              looks up each of your codes and maps it, attaching any redemptions already
+              imported.
+            </p>
+          </div>
+          <AutoMapButton />
+        </div>
+      </div>
 
       <div style={{ marginBottom: "2rem" }}>
         <ScanButton />

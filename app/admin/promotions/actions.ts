@@ -138,3 +138,66 @@ export async function unassignPromotion(formData: FormData): Promise<void> {
   });
   revalidatePath("/admin/promotions");
 }
+
+// Looks up each app coupon code in Metorik. IJW gate coupons carry a description
+// like "Gate coupon for IJW promotion #101", so we read the promotion id from
+// there and map it to the code automatically. Also attaches any already-imported
+// redemptions for that promotion, so no re-sync is needed.
+export async function autoMapFromMetorik(): Promise<{
+  error?: string;
+  checked?: number;
+  mapped?: number;
+  details?: string[];
+}> {
+  await assertAdmin();
+  if (!metorikConfigured()) {
+    return { error: "The Metorik API key is not set." };
+  }
+
+  const coupons = await prisma.coupon.findMany({ select: { id: true, code: true } });
+  let mapped = 0;
+  const details: string[] = [];
+
+  for (const coupon of coupons) {
+    if (coupon.code.length < 3) continue; // search needs 3+ characters
+
+    let res: Response;
+    try {
+      res = await metorikGet("/search", {
+        resource: "coupons",
+        query: coupon.code,
+        count: 5,
+      });
+    } catch {
+      continue;
+    }
+    if (!res.ok) continue;
+
+    const json = (await res.json()) as {
+      data?: { code?: string; description?: string }[];
+    };
+    const match = (json.data ?? []).find(
+      (r) => (r.code ?? "").toUpperCase() === coupon.code.toUpperCase(),
+    );
+    const m = /IJW promotion #(\d+)/i.exec(match?.description ?? "");
+    if (!m) continue;
+
+    const promotionId = m[1];
+    await prisma.metorikPromotion.upsert({
+      where: { promotionId },
+      create: { promotionId, couponId: coupon.id },
+      update: { couponId: coupon.id },
+    });
+    await prisma.onlineRedemption.updateMany({
+      where: { promotionId },
+      data: { couponId: coupon.id, couponCode: coupon.code },
+    });
+
+    mapped += 1;
+    details.push(`${coupon.code} → promotion ${promotionId}`);
+  }
+
+  revalidatePath("/admin/promotions");
+  revalidatePath("/");
+  return { checked: coupons.length, mapped, details };
+}
