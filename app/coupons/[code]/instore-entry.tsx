@@ -32,6 +32,7 @@ export function InstoreEntry({
   stores: Store[];
 }) {
   const router = useRouter();
+  const [batchDate, setBatchDate] = useState("");
   const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -51,7 +52,7 @@ export function InstoreEntry({
   function save() {
     setError("");
     const payload: InstoreRowInput[] = rows.map((r) => ({
-      redeemedOn: "",
+      redeemedOn: batchDate,
       storeId: r.storeId,
       transactionTotal: r.transactionTotal,
       discountAmount: "",
@@ -72,6 +73,20 @@ export function InstoreEntry({
   return (
     <div>
       {error && <p className="form-error">{error}</p>}
+
+      <div className="field" style={{ maxWidth: "18rem", marginBottom: "1.1rem" }}>
+        <label htmlFor="batch-date">Date used</label>
+        <input
+          id="batch-date"
+          type="date"
+          value={batchDate}
+          onChange={(e) => setBatchDate(e.target.value)}
+        />
+        <p className="form-hint">
+          Applies to every redemption below. Pick any day in the week it was used.
+          Leave blank to use today.
+        </p>
+      </div>
 
       {rows.map((row, i) => (
         <div className="entry-card" key={i}>
