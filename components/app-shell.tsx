@@ -16,6 +16,7 @@ const SETUP: NavItem[] = [
   { key: "imports", label: "Imports", href: "/admin/imports", icon: "↻" },
   { key: "promotions", label: "Promotions", href: "/admin/promotions", icon: "◆" },
   { key: "stores", label: "Stores", href: "/admin/stores", icon: "⌂" },
+  { key: "users", label: "Users", href: "/admin/users", icon: "◑" },
 ];
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
