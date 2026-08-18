@@ -2,6 +2,7 @@ import type { FulfilmentGroup } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { metorikGet, metorikConfigured } from "@/lib/metorik";
+import { autoMapGateCoupons } from "@/lib/metorik-automap";
 
 const PROMOTION_META_KEY = "_ijwp_promotion_id";
 const EXCLUDED_SKU = "QMP001"; // BR-05: phantom click-and-reserve product
@@ -76,6 +77,9 @@ export async function runMetorikSync(opts: {
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - opts.sinceDays);
   since.setUTCHours(0, 0, 0, 0);
+
+  // Refresh gate-coupon mappings first, so new codes attribute in this same run.
+  await autoMapGateCoupons();
 
   const promos = await prisma.metorikPromotion.findMany({
     include: { coupon: { select: { id: true, code: true } } },

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { metorikGet, metorikConfigured } from "@/lib/metorik";
+import { autoMapGateCoupons } from "@/lib/metorik-automap";
 
 const PROMOTION_META_KEY = "_ijwp_promotion_id";
 const MAX_SAMPLE_PRODUCTS = 6;
@@ -139,34 +140,7 @@ export async function unassignPromotion(formData: FormData): Promise<void> {
   revalidatePath("/admin/promotions");
 }
 
-// Recursively find a coupon object with the given code anywhere in the search
-// response (its shape wraps results by resource), and return its description.
-function findCouponDescription(node: unknown, code: string): string | null {
-  if (Array.isArray(node)) {
-    for (const x of node) {
-      const r = findCouponDescription(x, code);
-      if (r !== null) return r;
-    }
-  } else if (node && typeof node === "object") {
-    const obj = node as Record<string, unknown>;
-    if (
-      typeof obj.code === "string" &&
-      obj.code.toUpperCase() === code.toUpperCase()
-    ) {
-      return typeof obj.description === "string" ? obj.description : "";
-    }
-    for (const v of Object.values(obj)) {
-      const r = findCouponDescription(v, code);
-      if (r !== null) return r;
-    }
-  }
-  return null;
-}
-
-// Looks up each app coupon code in Metorik. IJW gate coupons carry a description
-// like "Gate coupon for IJW promotion #101", so we read the promotion id from
-// there and map it to the code automatically. Also attaches any already-imported
-// redemptions for that promotion, so no re-sync is needed.
+// Manual trigger for the auto-map (also runs automatically inside each sync).
 export async function autoMapFromMetorik(): Promise<{
   error?: string;
   checked?: number;
@@ -178,51 +152,8 @@ export async function autoMapFromMetorik(): Promise<{
     return { error: "The Metorik API key is not set." };
   }
 
-  const coupons = await prisma.coupon.findMany({ select: { id: true, code: true } });
-  let mapped = 0;
-  const details: string[] = [];
-
-  for (const coupon of coupons) {
-    if (coupon.code.length < 3) continue; // search needs 3+ characters
-
-    let res: Response;
-    try {
-      res = await metorikGet("/search", {
-        resource: "coupons",
-        query: coupon.code,
-        count: 5,
-      });
-    } catch {
-      continue;
-    }
-    if (!res.ok) continue;
-
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      continue;
-    }
-    const description = findCouponDescription(json, coupon.code) ?? "";
-    const m = /IJW promotion #(\d+)/i.exec(description);
-    if (!m) continue;
-
-    const promotionId = m[1];
-    await prisma.metorikPromotion.upsert({
-      where: { promotionId },
-      create: { promotionId, couponId: coupon.id },
-      update: { couponId: coupon.id },
-    });
-    await prisma.onlineRedemption.updateMany({
-      where: { promotionId },
-      data: { couponId: coupon.id, couponCode: coupon.code },
-    });
-
-    mapped += 1;
-    details.push(`${coupon.code} → promotion ${promotionId}`);
-  }
-
+  const { checked, mapped, details } = await autoMapGateCoupons();
   revalidatePath("/admin/promotions");
   revalidatePath("/");
-  return { checked: coupons.length, mapped, details };
+  return { checked, mapped, details };
 }
