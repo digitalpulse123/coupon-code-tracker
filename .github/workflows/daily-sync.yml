@@ -1,0 +1,17 @@
+name: Daily Metorik sync
+
+# Runs every day at 06:00 UTC, and can be triggered manually from the Actions tab.
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Metorik sync
+        run: |
+          curl -fsS -X POST \
+            "https://coupon-code-tracker-production.up.railway.app/api/import/sync?days=2" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

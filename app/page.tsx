@@ -66,6 +66,7 @@ export default async function Home() {
 
         <p style={{ margin: "0 0 1.5rem", display: "flex", gap: "1rem" }}>
           <Link href="/coupons">Coupons</Link>
+          {isAdmin && <Link href="/admin/imports">Imports</Link>}
           {isAdmin && <Link href="/admin/promotions">Promotions</Link>}
           {isAdmin && <Link href="/admin/stores">Manage stores</Link>}
         </p>

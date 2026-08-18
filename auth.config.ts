@@ -8,8 +8,9 @@ import type { UserRole } from "@prisma/client";
 
 // Pages that never require a session.
 const PUBLIC_PAGES = ["/login", "/setup"];
-// API routes that never require a session.
-const PUBLIC_API = ["/api/setup", "/api/health"];
+// API routes that never require a session (they do their own auth).
+// /api/import/sync authenticates the scheduled caller by a shared secret.
+const PUBLIC_API = ["/api/setup", "/api/health", "/api/import/sync"];
 
 function matches(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname === p || pathname.startsWith(p + "/"));

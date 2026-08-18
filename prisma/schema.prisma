@@ -126,19 +126,22 @@ model StoreAlias {
 // Redemptions
 // ---------------------------------------------------------------------------
 
-/// One row per coupon per order. An order with two codes produces two rows.
-/// The (order_number, coupon_code) unique constraint makes imports idempotent.
+/// One row per promotion per order. An order using two promotions produces two
+/// rows. Online attribution is by the IJW promotion id found on order line
+/// items; coupon_id/coupon_code are resolved from the promotion mapping.
+/// The (order_number, promotion_id) unique constraint makes imports idempotent.
 model OnlineRedemption {
   id                String           @id @default(uuid()) @db.Uuid
-  couponCode        String           @map("coupon_code") // denormalised so unknown codes still import
-  couponId          String?          @map("coupon_id") @db.Uuid // resolved where a match exists
+  promotionId       String?          @map("promotion_id") // IJW _ijwp_promotion_id
+  couponCode        String?          @map("coupon_code") // denormalised from the mapped coupon
+  couponId          String?          @map("coupon_id") @db.Uuid // resolved where a mapping exists
   orderNumber       String           @map("order_number")
   orderDate         DateTime         @map("order_date") @db.Timestamptz(6)
   orderTotal        Decimal?         @map("order_total") @db.Decimal(10, 2) // order-level, dedupe on order_number when summing (BR-03)
-  discountAmount    Decimal?         @map("discount_amount") @db.Decimal(10, 2) // this coupon's share
+  discountAmount    Decimal?         @map("discount_amount") @db.Decimal(10, 2) // not available from Metorik, kept for parity
   shippingMethodRaw String?          @map("shipping_method_raw") // exactly as received, never overwrite (BR-10)
   fulfilmentGroup   FulfilmentGroup? @map("fulfilment_group")
-  storeId           String?          @map("store_id") @db.Uuid // populated for C&C and C&R
+  storeId           String?          @map("store_id") @db.Uuid // populated for C&C and C&R when known
   isRefunded        Boolean          @default(false) @map("is_refunded")
   importBatchId     String?          @map("import_batch_id") @db.Uuid
   createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -148,9 +151,10 @@ model OnlineRedemption {
   importBatch ImportBatch?         @relation(fields: [importBatchId], references: [id])
   lineItems   RedemptionLineItem[]
 
-  @@unique([orderNumber, couponCode])
+  @@unique([orderNumber, promotionId])
   @@index([orderDate])
-  @@index([couponCode, orderDate])
+  @@index([promotionId, orderDate])
+  @@index([couponId, orderDate])
   @@index([storeId, orderDate])
   @@map("online_redemption")
 }
