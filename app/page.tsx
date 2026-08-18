@@ -17,11 +17,32 @@ const GRANS: { key: Gran; label: string }[] = [
   { key: "monthly", label: "Monthly" },
 ];
 
-function Granularity({ gran }: { gran: Gran }) {
+function toISO(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+function parseDate(s: string | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function Granularity({
+  gran,
+  fromStr,
+  toStr,
+}: {
+  gran: Gran;
+  fromStr: string;
+  toStr: string;
+}) {
   return (
     <div className="seg" role="group" aria-label="Report granularity">
       {GRANS.map((g) => (
-        <Link key={g.key} href={`/?gran=${g.key}`} aria-pressed={gran === g.key}>
+        <Link
+          key={g.key}
+          href={`/?gran=${g.key}&from=${fromStr}&to=${toStr}`}
+          aria-pressed={gran === g.key}
+        >
           {g.label}
         </Link>
       ))}
@@ -32,14 +53,22 @@ function Granularity({ gran }: { gran: Gran }) {
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ gran?: string }>;
+  searchParams: Promise<{ gran?: string; from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
   const gran: Gran =
     sp.gran === "daily" || sp.gran === "monthly" ? sp.gran : "weekly";
 
+  const today = new Date();
+  const toDate = parseDate(sp.to) ?? today;
+  let fromDate =
+    parseDate(sp.from) ?? new Date(toDate.getTime() - 29 * 24 * 60 * 60 * 1000);
+  if (fromDate > toDate) fromDate = toDate;
+  const fromStr = toISO(fromDate);
+  const toStr = toISO(toDate);
+
   const [data, lastImport, lastInstore] = await Promise.all([
-    getDashboardData(gran),
+    getDashboardData(gran, fromDate, toDate),
     prisma.importBatch.findFirst({ orderBy: { runAt: "desc" }, select: { runAt: true } }),
     prisma.instoreRedemption.findFirst({
       orderBy: { createdAt: "desc" },
@@ -63,7 +92,20 @@ export default async function Dashboard({
       active="dash"
       title="Coupon performance"
       subtitle={`All channels · ${data.windowLabel}`}
-      actions={<Granularity gran={gran} />}
+      actions={
+        <>
+          <form method="get" className="daterange">
+            <input type="hidden" name="gran" value={gran} />
+            <input type="date" name="from" defaultValue={fromStr} aria-label="From date" />
+            <span>–</span>
+            <input type="date" name="to" defaultValue={toStr} aria-label="To date" />
+            <button className="btn-sm" style={{ marginLeft: 6 }}>
+              Apply
+            </button>
+          </form>
+          <Granularity gran={gran} fromStr={fromStr} toStr={toStr} />
+        </>
+      }
     >
       {/* freshness banner (BR-07) */}
       <div className="sync">

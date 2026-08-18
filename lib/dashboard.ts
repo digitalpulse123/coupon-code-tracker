@@ -29,33 +29,39 @@ function addMonths(d: Date, n: number): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
 }
 
-function buildBuckets(gran: Gran, now: Date): Bucket[] {
+const MAX_BUCKETS = 120;
+
+// Buckets spanning [start, end) at the chosen granularity.
+function buildBucketsInRange(gran: Gran, start: Date, end: Date): Bucket[] {
   const buckets: Bucket[] = [];
   if (gran === "daily") {
-    const today = startOfUTCDay(now);
-    for (let i = 13; i >= 0; i--) {
-      const start = addDays(today, -i);
+    let d = startOfUTCDay(start);
+    while (d < end && buckets.length < MAX_BUCKETS) {
+      const next = addDays(d, 1);
       buckets.push({
-        label: String(start.getUTCDate()).padStart(2, "0"),
-        start,
-        end: addDays(start, 1),
+        label: `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+        start: d,
+        end: next,
       });
+      d = next;
     }
   } else if (gran === "weekly") {
-    const thisWeek = startOfISOWeek(now);
-    for (let i = 11; i >= 0; i--) {
-      const start = addDays(thisWeek, -i * 7);
+    let d = startOfISOWeek(start);
+    while (d < end && buckets.length < MAX_BUCKETS) {
+      const next = addDays(d, 7);
       buckets.push({
-        label: `${String(start.getUTCDate()).padStart(2, "0")} ${MONTHS[start.getUTCMonth()]}`,
-        start,
-        end: addDays(start, 7),
+        label: `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()]}`,
+        start: d,
+        end: next,
       });
+      d = next;
     }
   } else {
-    const thisMonth = startOfMonth(now);
-    for (let i = 11; i >= 0; i--) {
-      const start = addMonths(thisMonth, -i);
-      buckets.push({ label: MONTHS[start.getUTCMonth()], start, end: addMonths(start, 1) });
+    let d = startOfMonth(start);
+    while (d < end && buckets.length < MAX_BUCKETS) {
+      const next = addMonths(d, 1);
+      buckets.push({ label: MONTHS[d.getUTCMonth()], start: d, end: next });
+      d = next;
     }
   }
   return buckets;
@@ -84,16 +90,23 @@ export type DashboardData = {
   }[];
 };
 
-export async function getDashboardData(gran: Gran): Promise<DashboardData> {
-  const now = new Date();
-  const buckets = buildBuckets(gran, now);
-  const windowStart = buckets[0].start;
+export async function getDashboardData(
+  gran: Gran,
+  from: Date,
+  to: Date,
+): Promise<DashboardData> {
+  const windowStart = startOfUTCDay(from);
+  const windowEnd = addDays(startOfUTCDay(to), 1); // inclusive of the "to" day
+  const buckets = buildBucketsInRange(gran, windowStart, windowEnd);
 
   const [online, instore, coupons, stores] = await Promise.all([
     prisma.onlineRedemption.findMany({
       // Only redemptions attributed to a code count towards reporting.
       // Unassigned promotions are ignored until (and unless) they are mapped.
-      where: { orderDate: { gte: windowStart }, couponId: { not: null } },
+      where: {
+        orderDate: { gte: windowStart, lt: windowEnd },
+        couponId: { not: null },
+      },
       select: {
         orderDate: true,
         orderNumber: true,
@@ -102,7 +115,7 @@ export async function getDashboardData(gran: Gran): Promise<DashboardData> {
       },
     }),
     prisma.instoreRedemption.findMany({
-      where: { redeemedOn: { gte: windowStart } },
+      where: { redeemedOn: { gte: windowStart, lt: windowEnd } },
       select: {
         redeemedOn: true,
         transactionTotal: true,
@@ -211,7 +224,7 @@ export async function getDashboardData(gran: Gran): Promise<DashboardData> {
     .sort((a, b) => b.online + b.instore - (a.online + a.instore))
     .slice(0, 8);
 
-  const windowLabel = `${formatDateGB(windowStart)} – ${formatDateGB(now)}`;
+  const windowLabel = `${formatDateGB(from)} – ${formatDateGB(to)}`;
 
   return {
     windowLabel,
