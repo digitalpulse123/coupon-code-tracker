@@ -910,6 +910,147 @@ td select:focus {
   margin-bottom: 13px;
 }
 
+.entry-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px 15px;
+  margin-bottom: 12px;
+}
+.entry-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 11px;
+}
+.entry-card-n {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.entry-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr 100px 120px 1fr;
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .entry-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* product picker */
+.prodpick-search {
+  position: relative;
+}
+.prodpick-search input {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--card);
+  color: var(--ink);
+}
+.prodpick-search input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(22, 160, 133, 0.15);
+}
+.prodpick-results {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 12px 30px rgba(18, 18, 31, 0.14);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+}
+.prodpick-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 7px;
+  transition: background 0.1s;
+}
+.prodpick-item:hover {
+  background: var(--paper);
+}
+.prodpick-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--line-2);
+  flex-shrink: 0;
+}
+.prodpick-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.prodpick-info b {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prodpick-plus {
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 15px;
+}
+.prodpick-empty {
+  padding: 12px;
+  font-size: 12.5px;
+  color: var(--muted-2);
+  text-align: center;
+}
+.prodpick-selected {
+  margin-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prodpick-sel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  padding: 6px 10px;
+}
+.prodpick-sel-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.prodpick-qty {
+  width: 58px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: center;
+}
+
 /* ---------- create / edit coupon ---------- */
 .form-wide {
   max-width: 800px;

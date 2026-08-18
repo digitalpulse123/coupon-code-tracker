@@ -3,17 +3,27 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveInstoreBatch } from "./actions";
+import { ProductPicker, type SelectedProduct } from "./product-picker";
 import type { InstoreRowInput } from "./types";
 
 type Store = { id: string; name: string };
 
-const emptyRow = (): InstoreRowInput => ({
+type RowState = {
+  redeemedOn: string;
+  storeId: string;
+  transactionTotal: string;
+  discountAmount: string;
+  receiptRef: string;
+  products: SelectedProduct[];
+};
+
+const emptyRow = (): RowState => ({
   redeemedOn: "",
   storeId: "",
   transactionTotal: "",
   discountAmount: "",
   receiptRef: "",
-  itemsText: "",
+  products: [],
 });
 
 export function InstoreEntry({
@@ -26,26 +36,34 @@ export function InstoreEntry({
   stores: Store[];
 }) {
   const router = useRouter();
-  const [rows, setRows] = useState<InstoreRowInput[]>([emptyRow()]);
+  const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function update(index: number, field: keyof InstoreRowInput, value: string) {
-    setRows((rs) => rs.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  function update<K extends keyof RowState>(i: number, field: K, value: RowState[K]) {
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   }
 
   function addRow() {
     setRows((rs) => [...rs, emptyRow()]);
   }
 
-  function removeRow(index: number) {
-    setRows((rs) => (rs.length === 1 ? rs : rs.filter((_, i) => i !== index)));
+  function removeRow(i: number) {
+    setRows((rs) => (rs.length === 1 ? rs : rs.filter((_, idx) => idx !== i)));
   }
 
   function save() {
     setError("");
+    const payload: InstoreRowInput[] = rows.map((r) => ({
+      redeemedOn: r.redeemedOn,
+      storeId: r.storeId,
+      transactionTotal: r.transactionTotal,
+      discountAmount: r.discountAmount,
+      receiptRef: r.receiptRef,
+      products: r.products,
+    }));
     startTransition(async () => {
-      const res = await saveInstoreBatch(couponId, code, rows);
+      const res = await saveInstoreBatch(couponId, code, payload);
       if (res?.error) {
         setError(res.error);
         return;
@@ -59,97 +77,82 @@ export function InstoreEntry({
     <div>
       {error && <p className="form-error">{error}</p>}
 
-      <div style={{ overflowX: "auto" }}>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Store</th>
-              <th>Products (optional)</th>
-              <th>Total (£)</th>
-              <th>Discount (£)</th>
-              <th>Receipt ref (optional)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i}>
-                <td>
-                  <input
-                    type="date"
-                    value={row.redeemedOn}
-                    onChange={(e) => update(i, "redeemedOn", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={row.storeId}
-                    onChange={(e) => update(i, "storeId", e.target.value)}
-                  >
-                    <option value="">Choose...</option>
-                    {stores.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={row.itemsText}
-                    onChange={(e) => update(i, "itemsText", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={row.transactionTotal}
-                    onChange={(e) => update(i, "transactionTotal", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={row.discountAmount}
-                    onChange={(e) => update(i, "discountAmount", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={row.receiptRef}
-                    onChange={(e) => update(i, "receiptRef", e.target.value)}
-                  />
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button
-                    type="button"
-                    className="btn-link"
-                    onClick={() => removeRow(i)}
-                    disabled={rows.length === 1}
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {rows.map((row, i) => (
+        <div className="entry-card" key={i}>
+          <div className="entry-card-head">
+            <span className="entry-card-n">Redemption {i + 1}</span>
+            {rows.length > 1 && (
+              <button type="button" className="btn-link" onClick={() => removeRow(i)}>
+                Remove
+              </button>
+            )}
+          </div>
+          <div className="entry-grid">
+            <div className="field" style={{ margin: 0 }}>
+              <label>Date</label>
+              <input
+                type="date"
+                value={row.redeemedOn}
+                onChange={(e) => update(i, "redeemedOn", e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Store</label>
+              <select value={row.storeId} onChange={(e) => update(i, "storeId", e.target.value)}>
+                <option value="">Choose...</option>
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Total (£)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={row.transactionTotal}
+                onChange={(e) => update(i, "transactionTotal", e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Discount (£, optional)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={row.discountAmount}
+                onChange={(e) => update(i, "discountAmount", e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Receipt ref (optional)</label>
+              <input
+                type="text"
+                value={row.receiptRef}
+                onChange={(e) => update(i, "receiptRef", e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="field" style={{ margin: "0.9rem 0 0" }}>
+            <label>Products purchased</label>
+            <ProductPicker
+              value={row.products}
+              onChange={(next) => update(i, "products", next)}
+            />
+          </div>
+        </div>
+      ))}
 
       <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
         <button type="button" className="btn-link" onClick={addRow}>
-          Add another row
+          ＋ Add another redemption
         </button>
         <button
           type="button"
-          className="btn-primary"
+          className="btn-teal"
           style={{ width: "auto" }}
           onClick={save}
           disabled={isPending}

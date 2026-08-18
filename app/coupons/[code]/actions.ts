@@ -10,13 +10,20 @@ import type { InstoreRowInput } from "./types";
 
 type ActionState = { error?: string; ok?: boolean };
 
+type ScalarRow = {
+  redeemedOn?: string;
+  storeId?: string;
+  transactionTotal?: string;
+  discountAmount?: string;
+  receiptRef?: string;
+};
+
 type PreparedRow = {
   redeemedOn: Date;
   storeId: string;
   transactionTotal: number;
   discountAmount: number | null;
   receiptRef: string | null;
-  itemsText: string | null;
 };
 
 async function assertAdmin() {
@@ -38,10 +45,7 @@ function snapshot(r: InstoreRedemption): Prisma.InputJsonValue {
   };
 }
 
-function validateRow(
-  r: InstoreRowInput,
-  today: Date,
-): { data: PreparedRow } | { error: string } {
+function validateRow(r: ScalarRow, today: Date): { data: PreparedRow } | { error: string } {
   const redeemedOnStr = (r.redeemedOn ?? "").trim();
   if (!redeemedOnStr) return { error: "choose a date." };
   const redeemedOn = new Date(redeemedOnStr);
@@ -76,7 +80,6 @@ function validateRow(
       transactionTotal,
       discountAmount,
       receiptRef: (r.receiptRef ?? "").trim() || null,
-      itemsText: (r.itemsText ?? "").trim() || null,
     },
   };
 }
@@ -106,22 +109,43 @@ export async function saveInstoreBatch(
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  const prepared: PreparedRow[] = [];
+  const prepared: { data: PreparedRow; itemsText: string | null; products: InstoreRowInput["products"] }[] = [];
   for (let i = 0; i < rows.length; i++) {
     const result = validateRow(rows[i], today);
     if ("error" in result) return { error: `Row ${i + 1}: ${result.error}` };
-    prepared.push(result.data);
+    const products = (rows[i].products ?? []).map((p) => ({
+      name: String(p.name),
+      sku: String(p.sku),
+      quantity: Math.max(1, Math.round(Number(p.quantity) || 1)),
+    }));
+    const itemsText =
+      products.length > 0
+        ? products.map((p) => `${p.name} ×${p.quantity}`).join(", ")
+        : null;
+    prepared.push({ data: result.data, itemsText, products });
   }
 
-  if (!(await assertStoresExist(prepared.map((p) => p.storeId)))) {
+  if (!(await assertStoresExist(prepared.map((p) => p.data.storeId)))) {
     return { error: "One of the chosen stores no longer exists." };
   }
 
   await prisma.$transaction(async (tx) => {
     for (const p of prepared) {
       const created = await tx.instoreRedemption.create({
-        data: { couponId, enteredBy: userId, ...p },
+        data: { couponId, enteredBy: userId, ...p.data, itemsText: p.itemsText },
       });
+      if (p.products.length > 0) {
+        await tx.redemptionLineItem.createMany({
+          data: p.products.map((prod) => ({
+            channel: "instore" as const,
+            instoreRedemptionId: created.id,
+            productName: prod.name,
+            sku: prod.sku,
+            quantity: prod.quantity,
+            lineValue: null,
+          })),
+        });
+      }
       await tx.auditLog.create({
         data: {
           userId,
@@ -141,7 +165,7 @@ export async function saveInstoreBatch(
 export async function updateInstoreRow(
   id: string,
   code: string,
-  input: InstoreRowInput,
+  input: ScalarRow & { itemsText?: string },
 ): Promise<ActionState> {
   const session = await assertAdmin();
   const userId = session.user.id;
@@ -161,10 +185,12 @@ export async function updateInstoreRow(
     return { error: "That store no longer exists." };
   }
 
+  const itemsText = (input.itemsText ?? "").trim() || null;
+
   await prisma.$transaction(async (tx) => {
     const updated = await tx.instoreRedemption.update({
       where: { id },
-      data: result.data,
+      data: { ...result.data, itemsText },
     });
     await tx.auditLog.create({
       data: {
@@ -202,6 +228,8 @@ export async function deleteInstoreRow(
         before: snapshot(existing),
       },
     });
+    // Remove structured line items first (their check constraint forbids orphans).
+    await tx.redemptionLineItem.deleteMany({ where: { instoreRedemptionId: id } });
     await tx.instoreRedemption.delete({ where: { id } });
   });
 
