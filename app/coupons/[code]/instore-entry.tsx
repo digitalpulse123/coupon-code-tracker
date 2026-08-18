@@ -9,19 +9,15 @@ import type { InstoreRowInput } from "./types";
 type Store = { id: string; name: string };
 
 type RowState = {
-  redeemedOn: string;
   storeId: string;
   transactionTotal: string;
-  discountAmount: string;
   receiptRef: string;
   products: SelectedProduct[];
 };
 
 const emptyRow = (): RowState => ({
-  redeemedOn: "",
   storeId: "",
   transactionTotal: "",
-  discountAmount: "",
   receiptRef: "",
   products: [],
 });
@@ -55,10 +51,10 @@ export function InstoreEntry({
   function save() {
     setError("");
     const payload: InstoreRowInput[] = rows.map((r) => ({
-      redeemedOn: r.redeemedOn,
+      redeemedOn: "",
       storeId: r.storeId,
       transactionTotal: r.transactionTotal,
-      discountAmount: r.discountAmount,
+      discountAmount: "",
       receiptRef: r.receiptRef,
       products: r.products,
     }));
@@ -89,14 +85,6 @@ export function InstoreEntry({
           </div>
           <div className="entry-grid">
             <div className="field" style={{ margin: 0 }}>
-              <label>Date</label>
-              <input
-                type="date"
-                value={row.redeemedOn}
-                onChange={(e) => update(i, "redeemedOn", e.target.value)}
-              />
-            </div>
-            <div className="field" style={{ margin: 0 }}>
               <label>Store</label>
               <select value={row.storeId} onChange={(e) => update(i, "storeId", e.target.value)}>
                 <option value="">Choose...</option>
@@ -115,16 +103,6 @@ export function InstoreEntry({
                 min="0"
                 value={row.transactionTotal}
                 onChange={(e) => update(i, "transactionTotal", e.target.value)}
-              />
-            </div>
-            <div className="field" style={{ margin: 0 }}>
-              <label>Discount (£, optional)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={row.discountAmount}
-                onChange={(e) => update(i, "discountAmount", e.target.value)}
               />
             </div>
             <div className="field" style={{ margin: 0 }}>

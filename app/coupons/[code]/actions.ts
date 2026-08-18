@@ -47,10 +47,14 @@ function snapshot(r: InstoreRedemption): Prisma.InputJsonValue {
 
 function validateRow(r: ScalarRow, today: Date): { data: PreparedRow } | { error: string } {
   const redeemedOnStr = (r.redeemedOn ?? "").trim();
-  if (!redeemedOnStr) return { error: "choose a date." };
-  const redeemedOn = new Date(redeemedOnStr);
-  if (Number.isNaN(redeemedOn.getTime())) return { error: "the date is invalid." };
-  if (redeemedOn > today) return { error: "the date cannot be in the future." };
+  let redeemedOn: Date;
+  if (redeemedOnStr) {
+    redeemedOn = new Date(redeemedOnStr);
+    if (Number.isNaN(redeemedOn.getTime())) return { error: "the date is invalid." };
+    if (redeemedOn > today) return { error: "the date cannot be in the future." };
+  } else {
+    redeemedOn = today; // no date entered: use today
+  }
 
   const storeId = (r.storeId ?? "").trim();
   if (!storeId) return { error: "choose a store." };
