@@ -91,7 +91,9 @@ export async function getDashboardData(gran: Gran): Promise<DashboardData> {
 
   const [online, instore, coupons, stores] = await Promise.all([
     prisma.onlineRedemption.findMany({
-      where: { orderDate: { gte: windowStart } },
+      // Only redemptions attributed to a code count towards reporting.
+      // Unassigned promotions are ignored until (and unless) they are mapped.
+      where: { orderDate: { gte: windowStart }, couponId: { not: null } },
       select: {
         orderDate: true,
         orderNumber: true,
