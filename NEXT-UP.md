@@ -1,101 +1,89 @@
 # Coupon Code Tracker — where we are / next up
 
-_Last worked: 2026-08-13. Resume: 2026-08-14._
+_Last worked: 2026-08-18. Resume: next session._
 
 ## Quick links
 
 - **Live app:** https://coupon-code-tracker-production.up.railway.app
 - **Repo:** https://github.com/digitalpulse123/coupon-code-tracker
-- **Health check:** `/api/health` (should show `{"status":"ok","db":"ok"}`)
+- **Health:** `/api/health` (should show `{"status":"ok","db":"ok"}`)
 - **Admin login:** emma.davis@pulseandcocktails.co.uk
 
-## How deploys work now
+## How it runs
 
-- Push to `main` → Railway **auto-deploys** (this is switched on; if a push ever
-  stops deploying, check Settings → Source → branch → "Auto deploy").
-- Migrations run automatically on start-up (`prisma migrate deploy`).
-- Env vars set in Railway: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`,
-  `METORIK_API_KEY`. App listens on port **8080** (Railway's port).
+- Push to `main` → Railway auto-deploys. Migrations run on start-up.
+- Railway env vars set: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`,
+  `METORIK_API_KEY`, and `CRON_SECRET` (for the daily job). App listens on 8080.
+- Daily Metorik sync at 06:00 UTC via `.github/workflows/daily-sync.yml`
+  (needs `CRON_SECRET` in both Railway and GitHub repo secrets).
 
-## Phase 1 progress
+## What's built and working (all live)
 
-- [x] Repo, Railway, Postgres, deployed & reachable
-- [x] Prisma schema + migrations (incl. the idempotency unique constraint)
-- [x] Auth (login, first-admin setup, route protection, admin/viewer roles)
-- [x] Store master + aliases (`/admin/stores`) — the 17 stores seeded
-- [x] Coupon master: create, **edit, delete**, searchable index
-- [x] Coupon detail + in-store batch entry (with audit log)
-- [x] Promotions mapping admin (`/admin/promotions`)
-- [ ] **Metorik daily import** ← next big build
-- [ ] Dashboard (daily/weekly/monthly, breakdowns, freshness dates)
-- [ ] CSV export
+- **Auth**: login, first-admin setup, roles admin/viewer, route protection.
+- **Users** (`/admin/users`): add people (viewer or admin), enable/disable — this
+  is how you give someone access (create them, share the link + password).
+- **Stores** (`/admin/stores`): the 17 stores + aliases.
+- **Coupons**: create / edit / delete, searchable index, detail page with the
+  online + in-store channel blocks.
+- **Metorik online import** (`/admin/imports`): "Sync now" + daily auto. Pulls
+  orders, matches each to a code, records order-level online redemptions.
+- **Promotions** (`/admin/promotions`): auto-map + manual mapping (see below).
+- **In-store entry**: on a coupon's detail page. One card per redemption:
+  store, total, receipt, and a **product picker** (search Metorik by SKU/name,
+  pick with thumbnail/stock). Products stored structured. A single **"Date used"**
+  box at the top dates the whole batch (blank = today).
+- **Dashboard**: KPIs, redemptions-over-time chart, in-store by-store, top codes,
+  **date-range picker** + daily/weekly/monthly granularity.
+- **Design**: full reskin to the prototype (navy sidebar, Playfair headings,
+  pink=online / teal=in-store).
 
-## The key architecture finding (important context)
+## The core concept (important)
 
-Online discounts do **not** use WooCommerce coupon codes. They run through the
-**IJW Promotions** plugin. Metorik's order API does not expose coupon codes, but
-each order's `line_items[].meta` carries **`_ijwp_promotion_id`** (e.g. `58`).
-That is how we attribute an online order to a promotion.
+Online discounts are **IJW promotions**, not WooCommerce coupons. Metorik's order
+API doesn't carry coupon codes, but each order line item carries
+`_ijwp_promotion_id`. A customer code (e.g. VIBE20, SIGNUP15-2865) is an IJW
+**gate coupon** whose Metorik description says "Gate coupon for IJW promotion
+#NNN". So:
 
-- One order = one promotion (all its line items share the same promotion ID).
-- ~27% of recent orders carry a promotion.
-- `shipping_method_title` tells us fulfilment:
-  - `Store Collection - Pay Online` → click & collect
-  - `Store Collection - Pay Instore` → click & reserve
-  - `Guaranteed` / `Pickup Point` → delivery (the "guaranteed" group)
-- In-store usage is **always manual** (Metorik is online only).
+- **Auto-map** reads each code's gate-coupon description, maps promotion NNN → the
+  code, and attaches redemptions. It runs inside every sync now, so new codes
+  attribute themselves. Manual button also on the Promotions page.
+- Automatic category promos with no code (e.g. "2 for £50") are mapped by hand on
+  the Promotions page; suggested names are in `lib/known-promotions.ts`.
 
-Promotion IDs are mapped to coupon codes on `/admin/promotions`
-(suggested names live in `lib/known-promotions.ts`). The `metorik_promotion`
-table records each discovered promotion and its assigned coupon.
+## Accuracy vs Metorik (where we got to today)
 
-## NEXT UP — the daily import
+- After a fresh 30-day Sync now, code counts came into line with Metorik.
+- Added: **exclude failed / cancelled / pending orders** (match Metorik, BR-04).
+  A re-sync also deletes any such orders imported earlier.
+- **Remember when comparing:** the dashboard defaults to the **last 30 days** —
+  set the date range to match the Metorik view before comparing numbers.
+- Day-boundary drift is possible (Metorik = UK time, we bucket in UTC).
 
-Build the importer that turns orders into online redemptions:
+## NEXT UP / open items
 
-1. Pull orders from Metorik (`GET /orders`, paginated, newest first / by date).
-2. For each order, read `_ijwp_promotion_id` from line-item meta.
-3. Resolve promotion → coupon via `metorik_promotion.couponId`. Unknown/
-   unassigned promotions get **surfaced**, never dropped.
-4. Upsert **one `online_redemption` per (order_number, promotion)** so re-runs
-   never double-count. Fields: order date, order total, `shipping_method_raw`
-   + derived `fulfilment_group`, `is_refunded` (from status / `total_refunds`).
-5. Store `redemption_line_item` rows from `line_items`, **excluding SKU
-   `QMP001`** (BR-05).
-6. Write an `import_batch` row (rows read/created/updated/skipped).
-7. UI: an admin **Import** screen with a **"Sync now"** button showing the
-   result, plus a **daily schedule** (Railway cron hitting a protected sync
-   endpoint, or a scheduled job).
+- [ ] **Verify accuracy**: after the status-exclusion deploy, run a 30-day Sync
+      now and compare codes to Metorik on matching dates. Flag any still off.
+- [ ] **Hourly auto-sync** (optional): currently once daily at 06:00. Can bump to
+      hourly so figures stay current through the day — offered, not yet done.
+- [ ] **CSV export**: the last original spec item, not built yet.
+- [ ] Optional: richer create form (channel-picker cards + live offer preview
+      like the prototype); a "change date on all of a code's in-store entries"
+      tool; a "change password" option for users; an audit-log admin view.
 
-### Open questions to resolve during that build
+## Data source notes
 
-- **Discount amount:** not cleanly present in the order data (line prices look
-  already-adjusted). Likely we report **usage + revenue** online, and discount
-  stays reliable only for in-store (entered) — confirm this is acceptable.
-- **Which store for click & collect:** the order says it *was* C&C but not
-  *which* store. May live in an order meta field we haven't found yet
-  (Metorik `custom_fields`). For now online C&C is counted without a store.
-
-## Smaller follow-ups / tidy-ups
-
-- Coupons auto-created from promotions start with **no offer type** — set them
-  via **Edit coupon** (2 for £50 → Multibuy, 20% off Payday → Percentage 20…).
-- No admin view of the **audit log** yet (data is being written).
-- Coupon `type` (daily / email-limited) left "Not set" on seeded codes.
-- Consider a WooCommerce API path later if the pickup store / real discount
-  become essential (WooCommerce carries coupon_lines + order meta that Metorik
-  strips).
+- Metorik REST API: base `https://app.metorik.com/api/v1/store`, Bearer key.
+  Orders: `GET /orders`. Product/coupon lookup: `GET /search?resource=...&query=`.
+- The Metorik MCP is also connected in the working session (store 122386) and is
+  handy for diagnosing discrepancies directly.
 
 ## Local dev
 
 ```bash
 npm install
-# .env.local holds DATABASE_URL + AUTH_SECRET (gitignored)
-npm run dev            # http://localhost:3000
+npm run dev            # http://localhost:3000 (.env.local holds secrets)
 npm run db:migrate     # create/apply a migration
 ```
-
-Prisma CLI reads `.env.local` via dotenv-cli (the `db:*` scripts). The app is
-Next.js (App Router) + Prisma + Auth.js. Note: the project folder is inside
-OneDrive — if a build throws an `EINVAL readlink .next` error, delete `.next`
-and rebuild.
+Next.js App Router + Prisma + Auth.js. If a build throws `EINVAL readlink .next`
+(OneDrive quirk), delete `.next` and rebuild.
