@@ -139,6 +139,30 @@ export async function unassignPromotion(formData: FormData): Promise<void> {
   revalidatePath("/admin/promotions");
 }
 
+// Recursively find a coupon object with the given code anywhere in the search
+// response (its shape wraps results by resource), and return its description.
+function findCouponDescription(node: unknown, code: string): string | null {
+  if (Array.isArray(node)) {
+    for (const x of node) {
+      const r = findCouponDescription(x, code);
+      if (r !== null) return r;
+    }
+  } else if (node && typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    if (
+      typeof obj.code === "string" &&
+      obj.code.toUpperCase() === code.toUpperCase()
+    ) {
+      return typeof obj.description === "string" ? obj.description : "";
+    }
+    for (const v of Object.values(obj)) {
+      const r = findCouponDescription(v, code);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 // Looks up each app coupon code in Metorik. IJW gate coupons carry a description
 // like "Gate coupon for IJW promotion #101", so we read the promotion id from
 // there and map it to the code automatically. Also attaches any already-imported
@@ -173,13 +197,14 @@ export async function autoMapFromMetorik(): Promise<{
     }
     if (!res.ok) continue;
 
-    const json = (await res.json()) as {
-      data?: { code?: string; description?: string }[];
-    };
-    const match = (json.data ?? []).find(
-      (r) => (r.code ?? "").toUpperCase() === coupon.code.toUpperCase(),
-    );
-    const m = /IJW promotion #(\d+)/i.exec(match?.description ?? "");
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      continue;
+    }
+    const description = findCouponDescription(json, coupon.code) ?? "";
+    const m = /IJW promotion #(\d+)/i.exec(description);
     if (!m) continue;
 
     const promotionId = m[1];
